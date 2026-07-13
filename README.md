@@ -1,147 +1,99 @@
-# Assignment 1
+# 🧬 COVID-19 Drug Repurposing ML Pipeline
 
-# Class Info
-- Subject: BINF6200 Bioinformatics Programming
-- Professor: Chesley Leslin
-- Section: 06
+End-to-end machine learning pipeline for identifying COVID-19 therapeutic candidates from FDA-approved compounds using cheminformatics and ensemble ML.
 
-# Files
-1. protein_to_daltons.py
-2. input_to_amino_acids.py
-3. input_to_protocol.py
- 
-## Author: Janes Percy Johnson
+**ROC-AUC 0.855 · F1 0.712 · 1,620 compounds · 5-page Streamlit dashboard**
 
-# Assignment Description
-## Protein and Solution Preparation Programs:
+---
 
-This repository contains three Python programs that perform simple molecular biology calculations:
+## Results
 
-1. **protein_to_daltons.py**:
-   - Hard-coded protein length of 671 amino acids.
-   - Calculates the estimated molecular weight in kilodaltons (kDa) based on an average molecular weight of 110 Daltons per amino acid.
-   
-2. **input_to_amino_acids.py**:
-   - Asks the user for a gene name and the number of nucleotides in the DNA sequence.
-   - Calculates the number of amino acids in the resulting protein and its estimated molecular weight.
-   - Validates that the DNA sequence length is divisible by 3.
-   
-3. **input_to_protocol.py**:
-   - Takes inputs from the user regarding NaCl and MgCl2 concentrations and the final volume of the solution.
-   - Calculates the amount of each reagent to add based on user input.
+| Metric | v1 (default) | v2 (swept) |
+|---|---|---|
+| ROC-AUC | 0.8525 | **0.8553** |
+| F1 (active class) | 0.6667 | **0.7125** |
+| Precision | 0.7067 | **0.7500** |
+| Recall | 0.6310 | **0.6786** |
 
-# Programs
+Known COVID drugs correctly identified: ✓ Remdesivir · ✓ Dexamethasone · ✓ Nirmatrelvir · ✓ Molnupiravir
 
-## Program -1 (protein_to_daltons.py)
+---
 
-"""Hard-coded sequence of Rattus norvegicus PKC Beta-1 protein"""
+## Stack
 
-def main():
-    protein_sequence="""MADPAAGPPPSEGEESTVRFARKGALRQKNVHEVKNHKFTARFFKQPTFCSHCTDFIWGFGKQGFQCQVC
-CFVVHKRCHEFVTFSCPGADKGPASDDPRSKHKFKIHTYSSPTFCDHCGSLLYGLIHQGMKCDTCMMNVH
-KRCVMNVPSLCGTDHTERRGRIYIQAHIDREVLIVVVRDAKNLVPMDPNGLSDPYVKLKLIPDPKSESKQ
-KTKTIKCSLNPEWNETFRFQLKESDKDRRLSVEIWDWDLTSRNDFMGSLSFGISELQKAGVDGWFKLLSQ
-EEGEYFNVPVPPEGSEGNEELRQKFERAKIGQGTKAPEEKTANTISKFDNNGNRDRMKLTDFNFLMVLGK
-GSFGKVMLSERKGTDELYAVKILKKDVVIQDDDVECTMVEKRVLALPGKPPFLTQLHSCFQTMDRLYFVM
-EYVNGGDLMYHIQQVGRFKEPHAVFYAAEIAIGLFFLQSKGIIYRDLKLDNVMLDSEGHIKIADFGMCKE
-NIWDGVTTKTFCGTPDYIAPEIIAYQPYGKSVDWWAFGVLLYEMLAGQAPFEGEDEDELFQSIMEHNVAY
-PKSMSKEAVAICKGLMTKHPGKRLGCGPEGERDIKEHAFFRYIDWEKLERKEIQPPYKPKARDKRDTSNF
-DKEFTRQPVELTPTDKLFIMNLDQNEFAGFSYTNPEFVINV"""
+| Layer | Tools |
+|---|---|
+| Data | ChEMBL REST API · PubChem PUG REST (4 COVID bioassays) |
+| Features | RDKit ECFP4 Morgan fingerprints (2048 bits) + 15 molecular descriptors = 2063 features |
+| Model | Soft-voting ensemble: XGBoost + Random Forest + MLP |
+| Explainability | XGBoost gain-based feature importance |
+| Hyperparameter tuning | RandomizedSearchCV · 20 trials · 5-fold stratified CV |
+| Dashboard | Streamlit (5 pages) |
 
-    # To get rid of new line characters
-    protein_sequence=protein_sequence.replace('\r', '').replace('\n', '')
+---
 
-    # Average molecular weight per amino acid (in Daltons)
-    average_molecular_weight=110
+## Setup
 
-    # Calculate protein length
-    protein_length=len(protein_sequence) #Number of amino acids in the protein
-    print(f"The length of 'Protein kinase C beta type' is: {protein_length} ")
+```bash
+conda create -n wave_prep python=3.10 -y
+conda activate wave_prep
+conda install -c conda-forge rdkit -y
+pip install -r requirements.txt
+```
 
-    #Calculate molecular weight in Daltons
-    molecular_weight_daltons = protein_length * average_molecular_weight
+## Run
 
-    #Convert to Kilodaltons
-    molecular_weight_kilodaltons =molecular_weight_daltons / 1000
+```bash
+python train.py       # fetch data + train baseline model (~5 min first run)
+python sweep.py       # hyperparameter sweep, 20 trials (~5 min)
+streamlit run app.py  # launch dashboard at localhost:8501
+```
 
-    # Print estimated molecular weight
-    print(f"The average weight of this protein in kilodaltons is: {molecular_weight_kilodaltons} ")
+---
 
-main()
+## Project structure
 
-## Program -2 (input_to_amino_acids.py):
+```
+covid_drug_repurposing/
+├── data_pipeline.py       # ChEMBL + PubChem API fetching and ETL
+├── feature_engineering.py # RDKit ECFP4 fingerprints + 15 descriptors
+├── model.py               # XGBoost/RF/MLP soft-voting ensemble
+├── train.py               # End-to-end training script
+├── sweep.py               # RandomizedSearchCV hyperparameter sweep
+├── app.py                 # Streamlit dashboard (5 pages)
+├── requirements.txt
+├── data/
+│   ├── compounds.csv           # fetched dataset (gitignored)
+│   └── sweep_results.csv       # hyperparameter sweep log
+└── models/
+    ├── drug_repurposing_v1.joblib        # baseline model (gitignored)
+    └── drug_repurposing_v2_swept.joblib  # best model after sweep (gitignored)
+```
 
-import sys
+---
 
-def main():
-    gene_name = input("Please a name for the DNA sequence: ")
-    print(f"Your sequence name is: {gene_name}")
+## Dashboard pages
 
-    while True:
-        try:
-            number_nucleotides = float(input("Please enter the length of the sequence:"))
-            if number_nucleotides <= 0:
-                print("Please enter a positive number:")
-            else:
-                break
-        except ValueError:
-            print("Invalid input. Please enter a positive number.")
+| Page | Description |
+|---|---|
+| Overview | Dataset stats, label distribution, key metrics |
+| Predict a compound | Enter any SMILES, get activity probability + gauge dial |
+| Feature importance | Top 20 XGBoost features driving predictions |
+| Top candidates | All compounds ranked by predicted activity |
+| Sweep results | Hyperparameter trials, before/after comparison table |
 
-    print(f"The length of the DNA sequence is: {number_nucleotides}")
+---
 
-    if number_nucleotides % 3!=0:
-        print("\n\nError: the DNA sequence is not a multiple of 3")
-        sys.exit(1)
-    else:
-        number_amino_acids = number_nucleotides / 3
-        print(f"The length of the decoded protein is: {number_amino_acids}")
-        estimated_molecular_weight = (number_amino_acids * 110) / 1000
-        print(f"The average weight of the protein sequence is: {estimated_molecular_weight}")
+## Key engineering decisions
 
-main()
+**Class imbalance** — FDA-approved compounds are overwhelmingly inactive against COVID. Fixed via `scale_pos_weight = n_inactive / n_active` in XGBoost and `class_weight="balanced"` in Random Forest. Without this, the model achieved 99.7% accuracy by predicting everything inactive.
 
-## Program -3 (input_to_protocol.py):
+**PubChem API** — SMILES fetching requires POST requests returning `ConnectivitySMILES` (not GET with `CanonicalSMILES`). Discovered by debugging zero-record returns despite 13,000+ active CIDs retrieved.
 
-def main():
-    """Business logic"""
-    final_vol = float(input("Please enter the final volume of the solution (ml): "))
+**Top predictive feature** — `NumAromaticRings` is the strongest driver, consistent with antiviral scaffold chemistry where aromatic cores dominate active compounds.
 
-    # NaCl
-    nacl_stock = float(input("Please enter the NaCl stock (mM): "))
-    nacl_final = float(input("Please enter the NaCl final (mM): "))
+---
 
-    # MgCl2
-    mg_stock = float(input("Please enter the MgCl2 stock (mM): "))
-    mg_final = float(input("Please enter the MgCl2 final (mM): "))
+## Relevance to oligonucleotide drug discovery
 
-    # Calculate volumes
-    nacl_volume = final_vol * (nacl_final / nacl_stock)
-    mg_volume = final_vol * (mg_final / mg_stock)
-
-    # Print protocol
-    print(f"Add {nacl_volume:.3f} ml NaCl")
-    print(f"Add {mg_volume:.3f} ml MgCl2")
-    print(f"Add water to a final volume of {final_vol:.1f} ml and mix")
-
-if __name__ == '__main__':
-    main()
-
-
-## How to Run the Programs
-
-1. Clone the repository or download the files.
-2. Run the programs in a Python 3 environment using the following commands:
-
-   ```bash
-   $ python3 protein_to_daltons.py
-   $ python3 input_to_amino_acids.py
-   $ python3 input_to_protocol.py
-   
-3. Follow the on-screen prompts to input values and calculate results.
-
-
-# Dependencies
-Python 3.11
-
-# License
-MIT License
+This pipeline demonstrates the same ML workflow used in oligonucleotide QSAR modeling: feature engineering from molecular structure, ensemble classification with class imbalance handling, and explainability for scientific partners. The natural extension for RNA therapeutics is sequence-aware featurization — k-mer encodings, backbone modification flags (PS/PN/PO), and stereochemistry pattern encoding — alongside physicochemical descriptors.
